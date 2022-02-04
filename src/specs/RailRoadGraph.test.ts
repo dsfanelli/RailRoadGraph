@@ -76,11 +76,11 @@ describe("Test shortest path function", () => {
   addTrackToCity("spCity2", "spCity1", 10);
   addTrackToCity("spCity1", "spCity3", 10);
   test("Find shortest path between spCity1 and spCity2", () => {
-    expect(getShortestPath(["spCity1", "spCity3"]).toBe(10));
+    expect(getShortestPath("spCity1", "spCity3").toBe(10));
   });
 
   test("Flag nonexistant path between spCity3 and spCity1", () => {
-    expect(getShortestPath(["spCity3", "spCity1"]).toBe(badPathFlag));
+    expect(getShortestPath("spCity3", "spCity1").toBe(badPathFlag));
   });
 });
 
@@ -127,8 +127,8 @@ const getPathLength = (cities: Array<City>) => {
   return rrTestGraph.getPathLength(cities);
 };
 
-const getShortestPath = (cities: Array<City>) => {
-  return rrTestGraph.getShortestPath(cities);
+const getShortestPath = (startCity: string, targetCity: string) => {
+  return rrTestGraph.getShortestPath(startCity, targetCity);
 };
 
 const getNumTripsUpToDistance = (cities: Array<City>, limitValue: number) => {

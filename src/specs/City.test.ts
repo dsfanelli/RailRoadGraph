@@ -17,7 +17,6 @@ describe("Test state of city object before and in response to track insertion at
   test("Disallow multiple tracks from one city to another", () => {
     let destinationCityName = "firstDest";
     let trackLength = 6;
-    let trackCountBeforeInsertion = getTrackCount();
     expect(() => {
       addTrackToCity(destinationCityName, trackLength);
     }).toThrow();

@@ -2,7 +2,7 @@
   "name": "vanilla-typescript",
   "version": "1.0.0",
   "description": "JavaScript and TypeScript example starter project",
-  "main": "src/index.ts",
+  "main": "src/main.ts",
   "scripts": {
     "start": "parcel index.html --open",
     "build": "parcel build src/index.ts",
@@ -18,5 +18,8 @@
   "resolutions": {
     "@babel/preset-env": "7.13.8"
   },
-  "keywords": ["typescript", "javascript"]
+  "keywords": [
+    "typescript",
+    "javascript"
+  ]
 }
