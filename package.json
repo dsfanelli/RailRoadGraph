@@ -4,11 +4,12 @@
   "description": "JavaScript and TypeScript example starter project",
   "main": "src/main.ts",
   "scripts": {
-    "start": "parcel index.html --open",
-    "build": "parcel build src/index.ts",
+    "start": "parcel main.ts --open",
+    "build": "parcel build src/main.ts",
     "test": "jest"
   },
   "dependencies": {
+    "@types/jest": "27.4.0",
     "jest": "27.4.7",
     "parcel-bundler": "^1.6.1"
   },

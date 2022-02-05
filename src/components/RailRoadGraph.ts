@@ -1,45 +1,101 @@
 import Track from "./Track";
 import City from "./City";
+
+/*
+  This is the main control object that works with the city objects
+  to modify their data, compute travel related data such as distances
+  and stops, and sets the rules for inclusion of cities as well as 
+  tracks for those cities. Client objects can indirectly manipulate 
+  data by calling its functions using strings and it will check to see
+  if those requests are valid (i.e. are the clients attemtping to 
+  add a duplicate city, are they attempting to add a track to a city
+  that doesnt exist in the graph) and error throw if they aren't. Its
+  data is private as to protect from outside clients manipulating it 
+  directly (i.e. adding duplicate cities).
+*/
 export default class RailRoadGraph {
   //maps city name to City
   private cities: Map<string, City> = new Map<string, City>();
 
   private hasCity = (cityName: string): boolean => this.cities.has(cityName);
 
-  private getCity = (cityName: string): City => {
-    if (!this.cities.has(cityName)) {
-      throw Error("City " + cityName + "does not exist");
-    }
-    return this.cities.get(cityName)!;
-  };
+  private getCity = (cityName: string): City => this.cities.get(cityName)!;
+
+  private getTracksByCityName = (cityName: string): Array<Track> =>
+    this.getCity(cityName)!.getTrackList();
 
   private shortestPathHelper = (
-    curCity: City,
-    targetCity: City,
+    curCityName: string,
+    targetCityName: string,
     visited: Map<string, boolean>
   ): number => {
-    if (curCity === targetCity) {
-      return 0;
-    }
-    let curCityName = curCity.getName();
-    let tracks = curCity.getTrackList();
+    let tracks = this.getTracksByCityName(curCityName);
     let shortestDist = -1;
     visited.set(curCityName, true);
     tracks.forEach((track: Track) => {
-      let destCity = track.getDestCity();
+      let destCityName = track.getDestCityName();
       let distanceToDestCity = track.getLength();
-      if (!visited.has(destCity.getName())) {
-        let found = this.shortestPathHelper(destCity, targetCity, visited);
-        if (found !== -1) {
-          shortestDist =
-            shortestDist === -1
-              ? distanceToDestCity + found
-              : Math.min(shortestDist, distanceToDestCity + found);
-        }
+      let candidateDistance = -1;
+      if (destCityName === targetCityName) {
+        candidateDistance = distanceToDestCity;
+      } else if (!visited.has(destCityName)) {
+        let found = this.shortestPathHelper(
+          destCityName,
+          targetCityName,
+          visited
+        );
+        candidateDistance = found > -1 ? distanceToDestCity + found : -1;
+      }
+      if (candidateDistance > -1) {
+        shortestDist =
+          shortestDist === -1
+            ? candidateDistance
+            : Math.min(candidateDistance, shortestDist);
       }
     });
     visited.delete(curCityName);
     return shortestDist;
+  };
+  /*
+    Slow and inefficient, but simpler than faster options 
+    like BFS. Can be changed when data grows large, but 
+    lets KISS ('keep it simple, stupid')for now. Takes 
+    and object to avoid blowing up the stack. 
+  */
+  private getNumTripsHelper = (numTripsParams: {
+    curCityName: string;
+    targetCityName: string;
+    limitBy: string; //{"stops","distance"} limit searching by number of stops or distance
+    min: number; //min distance or stops depending on value of limitBy
+    max: number; //max distance or stops depending on value of limitBy
+    travel: number; //current stop count or distance
+    numTrips: number;
+  }): void => {
+    let {
+      curCityName,
+      targetCityName,
+      limitBy,
+      min,
+      max,
+      travel,
+      numTrips
+    } = numTripsParams;
+    //console.log(numTripsParams);
+    let tracks = this.getTracksByCityName(curCityName);
+    tracks.forEach((track) => {
+      let travelIfPathTaken =
+        travel + (limitBy === "distance" ? track.getLength() : 1);
+      if (travelIfPathTaken <= max) {
+        numTripsParams.numTrips +=
+          track.getDestCityName() === targetCityName && travelIfPathTaken >= min
+            ? 1
+            : 0;
+        //console.log(travelIfPathTaken);
+        numTripsParams.curCityName = track.getDestCityName();
+        numTripsParams.travel = travelIfPathTaken;
+        this.getNumTripsHelper(numTripsParams);
+      }
+    });
   };
 
   addCityToGraph = (cityName: string): void => {
@@ -54,28 +110,23 @@ export default class RailRoadGraph {
     destCityName: string,
     trackLength: number
   ): void => {
-    let source = null;
-    let dest = null;
-    try {
-      source = this.getCity(sourceCityName);
-      dest = this.getCity(destCityName);
-    } catch (e) {
-      console.error(e);
-    }
-    if (source && dest) {
-      source.addTrackToCity(dest, trackLength);
+    if (!this.hasCity(sourceCityName) || !this.hasCity(destCityName)) {
+      throw Error("Source or destination city does not exist");
+    } else {
+      let sourceCity = this.getCity(sourceCityName);
+      let destCity = this.getCity(destCityName);
+      sourceCity.addTrackToCity(destCity, trackLength);
     }
   };
 
-  getPathLength = (cities: Array<City>): number => {
-    if (cities.length === 1) {
-      return 0;
+  getPathLength = (cityNames: Array<string>): number => {
+    if (!this.hasCity(cityNames[0])) {
+      return -1;
     }
-    let curCity = cities[0];
     let pathLength = 0;
-    for (let x = 1; x < cities.length; x++) {
-      let nextCity = cities[x];
-      let nextCityName = nextCity.getName();
+    let curCity = this.getCity(cityNames[0]);
+    for (let x = 1; x < cityNames.length; x++) {
+      let nextCityName = cityNames[x];
       if (!curCity.hasTrackTo(nextCityName)) {
         pathLength = -1;
         break;
@@ -84,25 +135,70 @@ export default class RailRoadGraph {
         .getTrackByDestCityName(nextCityName)
         .getLength();
       pathLength += curTrackLength;
+      curCity = this.getCity(nextCityName);
     }
     return pathLength;
   };
 
   getShortestPath = (startCityName: string, targetCityName: string): number => {
-    let startCity = null;
-    let targetCity = null;
-    try {
-      startCity = this.getCity(startCityName);
-      targetCity = this.getCity(targetCityName);
-    } catch (e) {
-      console.error(e);
-    }
-    if (startCity && targetCity) {
-      return this.shortestPathHelper(
-        startCity,
-        targetCity,
+    let pathLength = -1;
+    if (!this.hasCity(startCityName) || !this.hasCity(targetCityName)) {
+      throw Error("Source or destination city does not exist");
+    } else {
+      pathLength = this.shortestPathHelper(
+        startCityName,
+        targetCityName,
         new Map<string, boolean>()
       );
     }
+    return pathLength;
   };
+  /* 
+    These two functions call the main helper algorithm for
+    computing the number of different paths and exist
+    for an easier client experience (only a few parameters 
+    need to be passed) and to reuse the main helper 
+    function to avoid repeating the algorithm twice 
+    bc its slow and prone to change
+  */
+
+  getNumTripsLimitByDistance = (
+    startCityName: string,
+    targetCityName: string,
+    minDistance: number,
+    maxDistance: number
+  ): number => {
+    var numTripsParams = {
+      curCityName: startCityName,
+      targetCityName,
+      limitBy: "distance",
+      min: minDistance,
+      max: maxDistance,
+      travel: 0,
+      numTrips: 0
+    };
+    this.getNumTripsHelper(numTripsParams);
+    return numTripsParams.numTrips;
+  };
+
+  getNumTripsLimitByStops = (
+    startCityName: string,
+    targetCityName: string,
+    minDistance: number,
+    maxDistance: number
+  ): number => {
+    var numTripsParams = {
+      curCityName: startCityName,
+      targetCityName,
+      limitBy: "stops",
+      min: minDistance,
+      max: maxDistance,
+      travel: 0,
+      numTrips: 0
+    };
+    this.getNumTripsHelper(numTripsParams);
+    return numTripsParams.numTrips;
+  };
+
+  getCityCount = (): number => this.cities.size;
 }
